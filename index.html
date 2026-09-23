@@ -363,9 +363,15 @@ function matches(text, re){
 }
 function clamp(n){ return Math.max(0, Math.min(100, Math.round(n))); }
 
+/* 千分位逗號會切斷「由…至…」的比對(例:由 1,200 ppm 降低至 600 ppm),
+   先把夾在數字之間的逗號去掉再比對。只用於判斷,不影響畫面顯示的原句。 */
+function normNum(text){
+  return text.replace(/(\d)[,,](?=\d)/g, "$1");
+}
+
 /* 取「由 A …至 B」兩端的數值。FR 值、能耗指數這類沒有單位的純數字也算。 */
 function btValues(text){
-  var m = text.match(RE.btPair);
+  var m = normNum(text).match(RE.btPair);
   if(!m) return null;
   function val(part){
     var v = part.match(RE.percent) || part.match(RE.money) || part.match(RE.numUnit) || part.match(RE.bareNum);
@@ -395,7 +401,7 @@ function evalS(text){
   var vagueW = matches(text, RE.vagueWord);
   var hasNumber = /\d/.test(stripTime(text));
 
-  var quantified = RE.baselineTarget.test(text) || RE.changeTo.test(text) || matches(stripTime(text), RE.percent).length > 0;
+  var quantified = RE.baselineTarget.test(normNum(text)) || RE.changeTo.test(normNum(text)) || matches(stripTime(text), RE.percent).length > 0;
   if(acts.length){ score += 32; ev.push({label:"行動動詞", items:acts}); }
   if(dels.length){ score += 22; ev.push({label:"具體產出", items:dels}); }
   if(quantified){ score += 20; ev.push({label:"程度明確", items:["以數字界定做到什麼程度"]}); }
@@ -434,7 +440,7 @@ function evalM(text){
   var units = matches(tless, RE.numUnit);
   var money = matches(tless, RE.money);
   var mets = matches(text, RE.metric);
-  var hasBT = RE.baselineTarget.test(text) || RE.changeTo.test(text);
+  var hasBT = RE.baselineTarget.test(normNum(text)) || RE.changeTo.test(normNum(text));
   var milestone = matches(text, RE.actionVerb).length > 0 && matches(text, RE.deliverable).length > 0;
 
   if(pct.length){ score += 30; ev.push({label:"比率/百分比", items:pct}); }
@@ -472,7 +478,7 @@ function evalA(text){
   var ev = [], tips = [], score = 22;
   var methods = matches(text, RE.method);
   var bases = matches(text, RE.baseline);
-  if(!bases.length && RE.baselineTarget.test(text)) bases = ["「由…至…」中的現況值"];
+  if(!bases.length && RE.baselineTarget.test(normNum(text))) bases = ["「由…至…」中的現況值"];
 
   if(methods.length){ score += 36; ev.push({label:"方法/作法", items:methods}); }
   if(bases.length){ score += 22; ev.push({label:"現況/基期", items:bases}); }
@@ -601,7 +607,7 @@ function rewriteParts(text){
   var nums = (tless.match(RE.percent) || []).concat(tless.match(RE.money) || [], tless.match(RE.numUnit) || []);
   /* 只有在句子真的寫了「提升至…」這類變化結構時,才把偵測到的數字當成目標值;
      里程碑型目標(完成下線、送樣)沒有目標值,留空讓學員自己填。 */
-  var hasChange = RE.changeTo.test(text) || RE.baselineTarget.test(text);
+  var hasChange = RE.changeTo.test(normNum(text)) || RE.baselineTarget.test(normNum(text));
   var baseline = null, target = (hasChange && nums.length) ? nums[0] : null;
 
   /* 有「由 A 提升至 B」結構時,A 是現況值、B 才是目標值 */
